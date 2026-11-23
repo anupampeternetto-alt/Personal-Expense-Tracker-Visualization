@@ -1,7 +1,11 @@
-
+﻿
 """Personal Expense Tracker - Interactive Dashboard."""
 
 import sqlite3
+from io import BytesIO
+
+from src.ingest import read_expense_csv, save_to_database
+from src.categorize import categorize_transactions                       
 from pathlib import Path
 
 import pandas as pd
@@ -18,7 +22,39 @@ st.set_page_config(
 
 st.title("\U0001F4B0 Personal Expense Tracker")
 st.caption("Interactive Financial Analytics Dashboard")
+st.sidebar.header("Import Transactions")
 
+uploaded_file = st.sidebar.file_uploader(
+    "Upload Expense CSV",
+    type=["csv"],
+    help="Required columns: Date, Description, Amount, Account",
+)
+
+if uploaded_file is not None:
+    if st.sidebar.button("Import CSV", type="primary"):
+        try:
+            clean, rejected = read_expense_csv(
+                BytesIO(uploaded_file.getvalue())
+            )
+
+            if clean.empty:
+                st.sidebar.warning("No valid transactions found.")
+            else:
+                save_to_database(clean)
+                categorize_transactions()
+
+                st.cache_data.clear()
+
+                st.sidebar.success(
+                    f"CSV processed: {len(clean)} valid records, "
+                    f"{len(rejected)} rejected records."
+                )
+                st.sidebar.info(
+                    "Duplicate transactions are ignored by the database."
+                )
+
+        except (ValueError, UnicodeError, Exception) as error:
+            st.sidebar.error(f"CSV import failed: {error}")
 
 @st.cache_data(ttl=60)
 def load_transactions():
@@ -62,7 +98,20 @@ selected_months = st.sidebar.multiselect(
     default=months,
 )
 
-filtered = df[df["month"].isin(selected_months)].copy()
+# Account filtering
+accounts = sorted(df["account"].dropna().unique().tolist())
+
+selected_accounts = st.sidebar.multiselect(
+    "Select Accounts",
+    options=accounts,
+    default=accounts,
+)
+
+# Apply month and account filters together
+filtered = df[
+    df["month"].isin(selected_months)
+    & df["account"].isin(selected_accounts)
+].copy()
 
 if filtered.empty:
     st.warning("Select at least one month to view the dashboard.")
@@ -278,3 +327,5 @@ st.download_button(
 )
 
 st.success("Dashboard loaded successfully!")
+
+
