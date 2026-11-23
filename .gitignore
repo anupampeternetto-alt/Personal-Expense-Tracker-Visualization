@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+db/*.db
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+*.bak
+*.db-journal
+*.db-wal
+*.db-shm
+db/*.db-*
+src/*_backup.py
+src/*_before_*.py
+src/*_backup*.py
